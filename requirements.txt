@@ -1,0 +1,14 @@
+# Dependencias del proyecto. Requiere Python 3.11 o superior.
+# Instalación: pip install -r requirements.txt
+
+# Datos
+numpy==2.5.4
+pandas==3.1.0
+requests==2.34.2
+
+# Modelos y evaluación
+scikit-learn==1.9.1
+
+# Visualización y exploración
+matplotlib==3.11.2
+jupyter==1.1.1
