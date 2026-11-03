@@ -21,6 +21,20 @@ Fase 1: investigación y estado del arte.
 - `notebooks/`: experimentos
 - `src/`: código fuente
 
+## Entorno de trabajo
+Requiere Python 3.11 o superior. Desde la raíz del repositorio:
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate          # Windows
+source .venv/bin/activate       # Linux / macOS
+pip install -r requirements.txt
+```
+
+La carpeta `.venv/` no se sube al repositorio. Si se añade una
+dependencia, se fija su versión en `requirements.txt` y se avisa al
+equipo.
+
 ## Objetivo
 Predecir la generación del día siguiente con resolución horaria
 (sujeto a confirmación).
