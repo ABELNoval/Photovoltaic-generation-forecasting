@@ -192,12 +192,21 @@ El esquema es **provisional** hasta que el Miembro 1 entrega la muestra mínima:
 
 ### Interfaz de los modelos
 
-Cada algoritmo se implementa en `src/models/<name>.py` con dos funciones:
+Cada algoritmo se implementa en `src/models/<name>.py` como una clase que hereda de la interfaz común `ModelInterface` (`src/models/base.py`) y define dos métodos:
 
-- `train(X, y)`: ajusta el modelo con los datos de entrenamiento.
-- `predict(X)`: devuelve la potencia normalizada para cada hora.
+- `train(X, y)`: ajusta el modelo con las horas de luz del periodo de entrenamiento.
+- `predict(X)`: devuelve la potencia normalizada para cada hora, con el mismo índice que `X`.
+
+`X` contiene todas las columnas de entrada y cada modelo elige las que usa (véase *Variables de entrada*). Las predicciones se ajustan después de forma común para todos los modelos: la noche se pone en cero y el resto se recorta al rango [0, 1]. Las funciones auxiliares (separar `X` e `y`, ajustar y guardar predicciones, guardar y cargar modelos) están en `src/models/utils.py`, y `src/models/README.md` explica cómo crear un modelo a partir de la plantilla `example.py`.
 
 De este modo, el Miembro 2 puede comparar y combinar los modelos sin modificar el código.
+
+### Variables de entrada
+
+- **Obligatorias para todos los modelos:** radiación (`ghi`), nubosidad, temperatura y las variables de calendario.
+- **Opcionales:** humedad, viento, presión y precipitación. Cada miembro prueba si mejoran su modelo, eligiendo solo con la validación de 2014–2015, y documenta en su texto final qué columnas usó y por qué.
+
+Los nombres de las columnas y estos grupos están definidos en `src/schema.py`.
 
 ### Reglas de trabajo
 
