@@ -60,16 +60,59 @@ class SVRModel(ModelInterface):
 - **Resultados.** Se guardan con `save_predictions` en
   `results/<name>_predictions.csv` (`timestamp_utc`, `prediction`).
 
+## Funciones comunes (`utils.py`)
+
+[`utils.py`](utils.py) reúne lo que es igual para todos los modelos, para
+que nadie tenga que reescribirlo ni lo haga de forma distinta:
+
+| Función | Qué hace |
+|---|---|
+| `split_xy(df)` | Separa el dataset en `X` (columnas de entrada) e `y` (`power_norm`). Por defecto deja solo las horas de luz; con `daytime_only=False` deja las 24 horas, que es lo que se usa para predecir. |
+| `postprocess_predictions(pred, is_day)` | Pone en 0 las horas de noche y recorta el resto al rango [0, 1]. Se aplica a las predicciones de todos los modelos por igual. |
+| `save_predictions(pred, name)` | Escribe `results/<name>_predictions.csv` con las columnas `timestamp_utc` y `prediction`, el formato que usa la evaluación. |
+| `save_model(model, path)` / `load_model(path)` | Guardan un modelo entrenado en un archivo y lo vuelven a cargar (ver abajo). |
+
+### Guardar y cargar un modelo
+
+Un modelo entrenado es un objeto de Python que vive en memoria: existe
+mientras el programa está en ejecución y desaparece al terminar el script
+o reiniciar el notebook. Para usarlo de nuevo habría que volver a
+entrenarlo, lo que en algunos modelos lleva minutos.
+
+`save_model` evita eso: convierte el objeto en un archivo (por ejemplo
+`svr.joblib`) con todo lo que el modelo aprendió y necesita para predecir:
+los árboles de un Random Forest, los vectores de soporte de un SVR, los
+datos de un kNN, y en todos los casos el escalado, las columnas elegidas y
+los hiperparámetros. `load_model` lee ese archivo y reconstruye el mismo
+objeto, listo para llamar a `predict` sin entrenar otra vez.
+
+Se usa la librería `joblib`, la que recomienda scikit-learn para guardar
+modelos. En el proyecto sirve, por ejemplo, para que `forecast.py` cargue
+el mejor modelo ya entrenado y para que la evaluación use los modelos de
+cada miembro sin repetir su entrenamiento.
+
+Dos precauciones:
+
+- Un modelo se carga con las **mismas versiones de las librerías** con las
+  que se guardó; por eso están fijadas en `requirements.txt`.
+- Solo se cargan archivos **propios o del equipo**: cargar un archivo de
+  este tipo puede ejecutar código.
+
 ## Flujo típico
 
 ```python
 from src.models.example import HourlyMeanModel
-from src.models.utils import postprocess_predictions, save_predictions, split_xy
+from src.models.utils import (
+    load_model, postprocess_predictions, save_model, save_predictions, split_xy,
+)
 
 X_train, y_train = split_xy(train_df)                   # solo horas de luz
 X_all, _ = split_xy(test_df, daytime_only=False)        # las 24 horas
 
-model = HourlyMeanModel().train(X_train, y_train)
+model = HourlyMeanModel().train(X_train, y_train)       # entrenar
+save_model(model, "example.joblib")                     # guardar lo aprendido
+
+model = load_model("example.joblib")                    # más tarde: cargar sin reentrenar
 raw = model.predict(X_all)
 predictions = postprocess_predictions(raw, test_df.set_index("timestamp_utc")["is_day"])
 save_predictions(predictions, model.name)
