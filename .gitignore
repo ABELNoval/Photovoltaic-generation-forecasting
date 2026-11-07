@@ -218,3 +218,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Datos y resultados del proyecto: por ahora no se sube nada salvo los
+# .gitkeep que mantienen las carpetas. Cuando exista sample.csv se
+# definirá qué archivos concretos se suben.
+data/*
+!data/.gitkeep
+results/*
+!results/.gitkeep
