@@ -20,7 +20,7 @@ Construir y comparar modelos de aprendizaje automático que, a partir de variabl
 ## 2. Datos
 
 **Decisión.**
-- **Generación:** el conjunto de 175 sistemas residenciales de Utrecht [6], en su versión con control de calidad. Se trabajará con un sistema individual (o pocos) elegido por los metadatos con disponibilidad diurna de al menos 95 % [7], y se agregarán de 1 minuto a 1 hora.
+- **Generación:** el conjunto de 175 sistemas residenciales de Utrecht [6], en su versión con control de calidad. Se trabajará con un sistema individual (o pocos), elegido entre los que cubren 2014–2017 según los metadatos y con una disponibilidad diurna de al menos 95 % calculada sobre las mediciones [7], y se agregarán de 1 minuto a 1 hora.
 - **Meteorología:** el archivo histórico de Open-Meteo en las coordenadas del sistema [8], con radiación de onda corta (GHI), nubosidad total y por capas, temperatura, humedad, viento, presión y precipitación, en UTC como la potencia.
 - **Periodo:** entrenamiento con 2014–2015, validación y comparación de modelos con 2016, y evaluación final con 2017.
 - **Complemento:** para medir el efecto del error de pronóstico se usará un sistema de PVDAQ con datos de 2022 o posteriores [9, 10] junto con el archivo de pronósticos de Open-Meteo, disponible desde 2021 o 2022 [8].
