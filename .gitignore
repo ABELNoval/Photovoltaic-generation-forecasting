@@ -219,10 +219,9 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Datos y resultados del proyecto: no se sube nada salvo los .gitkeep que
-# mantienen las carpetas y los archivos que el equipo comparte a propósito.
+# Datos y resultados del proyecto: no se sube nada salvo el .gitkeep de
+# results/ y los archivos de datos que el equipo comparte a propósito.
 data/*
-!data/.gitkeep
 !data/sample.csv
 results/*
 !results/.gitkeep
