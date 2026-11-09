@@ -72,7 +72,7 @@ Ningún miembro debe esperar a que el dataset esté completo para comenzar. En e
 **Actividades**
 
 1. Descargar el archivo `metadata.csv` de Zenodo (aproximadamente 23 kB), que contiene, para cada uno de los 175 sistemas, su capacidad, inclinación, orientación, ubicación aproximada y periodo de medición.
-2. Seleccionar un sistema con una disponibilidad diurna de al menos 95 %, criterio utilizado en uno de los estudios de referencia. Los metadatos no incluyen la disponibilidad: se calcula sobre las mediciones de los sistemas que cubren 2014–2017, contando los minutos con dato entre las 09:00 y las 15:00 UTC.
+2. Seleccionar el sistema con mayor disponibilidad diurna. Los metadatos no incluyen la disponibilidad: se calcula sobre las mediciones de los sistemas que cubren 2014–2017, contando los minutos con dato entre las 09:00 y las 15:00 UTC. Uno de los estudios de referencia exige al menos 95 %, pero en este conjunto ningún sistema lo alcanza: entre septiembre de 2015 y marzo de 2016 faltan mediciones en casi todos los sistemas a la vez. Se eligió **ID003** (87 %; 99 % en 2014, 84 % en 2015, 70 % en 2016 y 95 % en 2017). Como a 2016 le falta casi todo el invierno, la partición temporal debe revisarse antes de la fase de entrenamiento.
 3. Extraer la potencia del sistema seleccionado. Los archivos con control de calidad pesan alrededor de 3 GB cada uno; se descargan una sola vez, se extraen únicamente los datos del sistema elegido (pocos MB) y se comparte ese resultado.
 4. Agregar los datos de 1 minuto a **1 hora**.
 5. Descargar de Open-Meteo el clima correspondiente a las coordenadas del sistema: radiación de onda corta, nubosidad (total y por capas), temperatura, humedad, viento, presión y precipitación, en hora UTC, igual que la potencia.
