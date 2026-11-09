@@ -23,7 +23,6 @@ CHUNK_ROWS = 500_000
 # Franja que es de día todo el año en Utrecht (UTC): de 09:00 a 15:00.
 DAYTIME_HOURS = range(9, 15)
 
-MIN_AVAILABILITY = 0.95
 MIN_MINUTES_PER_HOUR = 45
 
 
@@ -39,36 +38,43 @@ def daytime_availability(
     path: Path = PV_POWER_CSV,
     start: pd.Timestamp = STUDY_START,
     end: pd.Timestamp = STUDY_END,
-) -> pd.Series:
+) -> pd.DataFrame:
     """Fracción de minutos diurnos con dato para cada sistema en [start, end].
 
-    Se compara con todos los minutos diurnos del periodo, de modo que las
-    filas que faltan en el archivo cuentan como no disponibles.
+    Devuelve una columna `availability` con el total del periodo y una por
+    año. Se compara con todos los minutos diurnos del periodo, de modo que
+    las filas que faltan en el archivo cuentan como no disponibles.
     """
     end_of_period = end + pd.Timedelta(days=1)
-    counts = pd.Series(0, index=system_ids)
+    counts = []
     for chunk in _read_chunks(path, system_ids):
         chunk = chunk[(chunk.index >= start) & (chunk.index < end_of_period)]
-        chunk = chunk[pd.DatetimeIndex(chunk.index).hour.isin(DAYTIME_HOURS)]
-        counts += chunk.notna().sum()
+        index = pd.DatetimeIndex(chunk.index)
+        chunk = chunk[index.hour.isin(DAYTIME_HOURS)]
+        counts.append(chunk.notna().groupby(pd.DatetimeIndex(chunk.index).year).sum())
+    counts = pd.concat(counts).groupby(level=0).sum()
 
-    days = (end_of_period.normalize() - start.normalize()).days
-    expected = days * len(DAYTIME_HOURS) * 60
-    return (counts / expected).rename("availability")
+    days = pd.Series(pd.date_range(start.normalize(), end_of_period, freq="D", inclusive="left"))
+    expected = days.groupby(days.dt.year).size() * len(DAYTIME_HOURS) * 60
+
+    by_year = counts.div(expected, axis=0).T
+    by_year.columns = [str(year) for year in by_year.columns]
+    by_year.insert(0, "availability", counts.sum() / expected.sum())
+    return by_year
 
 
-def rank_candidates(meta: pd.DataFrame, availability: pd.Series) -> pd.DataFrame:
-    """Ordena los sistemas con disponibilidad suficiente por lo típica que es
-    su instalación: orientación cercana al sur (180°) e inclinación de ~35°.
+def rank_candidates(meta: pd.DataFrame, availability: pd.DataFrame) -> pd.DataFrame:
+    """Ordena los sistemas de mayor a menor disponibilidad diurna.
 
-    Se descartan los sistemas sin coordenadas, porque sin ellas no se puede
-    descargar su meteorología.
+    La propuesta pedía al menos un 95 %, pero ningún sistema lo alcanza en
+    2014–2017: entre septiembre de 2015 y marzo de 2016 faltan mediciones en
+    casi todos los sistemas a la vez. Por eso se elige el de mayor
+    disponibilidad. Se descartan los sistemas sin coordenadas, porque sin
+    ellas no se puede descargar su meteorología.
     """
     table = meta.join(availability, how="inner").dropna(subset=["latitude", "longitude"])
-    table = table[table["availability"] >= MIN_AVAILABILITY].copy()
-    table["deviation"] = (table["azimuth"] - 180).abs() + (table["tilt"] - 35).abs()
-    columns = ["availability", "estimated_ac_capacity", "tilt", "azimuth", "deviation", "latitude", "longitude"]
-    return table.sort_values(["deviation", "availability"], ascending=[True, False])[columns]
+    columns = ["estimated_ac_capacity", "tilt", "azimuth", *availability.columns]
+    return table.sort_values("availability", ascending=False)[columns]
 
 
 def extract_system(system_id: str, path: Path = PV_POWER_CSV) -> pd.Series:
@@ -102,7 +108,7 @@ def _cmd_availability(args) -> None:
     table.to_csv(PROCESSED_DIR / "availability.csv")
 
     ranking = rank_candidates(candidates, availability)
-    print(f"\n{len(ranking)} sistemas con disponibilidad diurna >= {MIN_AVAILABILITY:.0%}:")
+    print("\nSistemas con mayor disponibilidad diurna (total y por año):")
     print(ranking.head(10).to_string(float_format=lambda x: f"{x:.3f}"))
     print(f"\nTabla completa: {PROCESSED_DIR / 'availability.csv'}")
 
