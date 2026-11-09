@@ -172,7 +172,7 @@ El objetivo no es únicamente que el modelo funcione, sino comprender su comport
 
 | Columna | Descripción |
 |---|---|
-| `timestamp_utc` | Inicio de la hora, en UTC |
+| `timestamp_utc` | **Final** de la hora, en UTC: la fila de las 12:00 resume de 11:00 a 12:00, igual que la radiación de Open-Meteo |
 | `power_norm` | Potencia horaria dividida entre la capacidad AC del sistema (variable que se predice) |
 | `ghi` | Radiación de onda corta (media de la hora precedente) |
 | `cloud_total`, `cloud_low`, `cloud_mid`, `cloud_high` | Cobertura de nubes |
@@ -180,7 +180,7 @@ El objetivo no es únicamente que el modelo funcione, sino comprender su comport
 | `hour_sin`, `hour_cos`, `doy_sin`, `doy_cos` | Hora del día y día del año en forma cíclica |
 | `is_day` | Indicador de las horas con radiación (la noche se excluye) |
 
-El esquema es **provisional** hasta que el Miembro 1 entrega la muestra mínima: en ese momento confirma o ajusta las columnas con base en los datos reales y el esquema se **congela**. Cualquier modificación posterior debe comunicarse y acordarse previamente entre todos.
+El esquema se **confirmó** con la muestra mínima (`data/sample.csv`: sistema ID003, marzo–mayo de 2014). El único ajuste respecto a la versión provisional fue etiquetar cada hora con su final en lugar de su inicio, para que la potencia y la radiación cubran el mismo intervalo. El esquema se **congela** con el dataset completo; cualquier modificación posterior debe comunicarse y acordarse previamente entre todos.
 
 ### Partición temporal
 
