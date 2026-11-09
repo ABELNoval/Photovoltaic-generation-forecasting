@@ -7,10 +7,11 @@ confirmarse con la muestra mínima, se actualiza aquí y en planning.md.
 TIMESTAMP = "timestamp_utc"  # final de la hora: la fila de las 12:00 resume 11:00–12:00
 TARGET = "power_norm"
 DAY_FLAG = "is_day"  # 1 si la hora tiene radiación (GHI > 0) en Open-Meteo
+GHI = "ghi"  # radiación de onda corta; la usa la persistencia reescalada
 
 # Obligatorias para todos los modelos.
 CORE_FEATURES = [
-    "ghi",
+    GHI,
     "cloud_total",
     "cloud_low",
     "cloud_mid",
