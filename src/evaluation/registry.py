@@ -12,7 +12,10 @@ from collections.abc import Callable
 import pandas as pd
 
 from src.evaluation.baselines.linear_regression import LinearRegressionBaseline
-from src.evaluation.baselines.persistence import DayAheadPersistence, RescaledPersistence
+from src.evaluation.baselines.persistence import (
+    DayAheadPersistence,
+    RescaledPersistence,
+)
 from src.models.base import ModelInterface
 
 ModelFactory = Callable[[pd.DataFrame], ModelInterface]
