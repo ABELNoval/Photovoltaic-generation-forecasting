@@ -22,7 +22,12 @@ from src.data.dataset import load_dataset
 from src.evaluation.periods import select_period
 from src.evaluation.registry import MODEL_FACTORIES, ModelFactory
 from src.evaluation.score import add_test_period_arguments, print_table, score_results
-from src.models.utils import RESULTS_DIR, postprocess_predictions, save_predictions, split_xy
+from src.models.utils import (
+    RESULTS_DIR,
+    postprocess_predictions,
+    save_predictions,
+    split_xy,
+)
 from src.schema import DAY_FLAG
 
 DEFAULT_TRAIN = ("2014-03-01", "2014-04-30")
