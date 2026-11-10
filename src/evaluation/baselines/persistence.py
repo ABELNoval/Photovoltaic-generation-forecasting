@@ -68,8 +68,8 @@ class RescaledPersistence(ModelInterface):
         index = pd.DatetimeIndex(X.index)
         days = day_of(index)
         target_ghi = X[GHI].groupby(days).sum()
-        observed_ghi = self.history[GHI].groupby(day_of(self.history.index)).sum()
-        previous_ghi = observed_ghi.reindex(target_ghi.index - ONE_DAY)
+        observed_ghi = self.history[GHI].groupby(day_of(pd.DatetimeIndex(self.history.index))).sum()
+        previous_ghi = observed_ghi.reindex(pd.DatetimeIndex(target_ghi.index) - ONE_DAY)
         previous_ghi = previous_ghi.where(previous_ghi > 0)  # sin radiación: factor indefinido
         factor = pd.Series(target_ghi.to_numpy() / previous_ghi.to_numpy(), index=target_ghi.index)
 
