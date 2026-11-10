@@ -13,3 +13,7 @@ scikit-learn==1.9.1
 # Visualización y exploración
 matplotlib==3.11.2
 jupyter==1.1.1
+
+# Pruebas (pytest: estándar de facto en Python, mantenido activamente;
+# 9.2.0 es la última versión estable a noviembre de 2026)
+pytest==9.2.0
