@@ -36,5 +36,9 @@ class SVRModel(ModelInterface):
         return self
     
     def predict(self, X: DataFrame) -> Series:
-        return super().predict(X)
+        if self.pipeline_ is None:
+                raise RuntimeError("El modelo no está entrenado: llama a train() primero.")
+        # Mismas columnas y mismo escalado que en train
+        raw = self.pipeline_.predict(X[self.columns_])
+        return Series(raw, index=X.index)
     
