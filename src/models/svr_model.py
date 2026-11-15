@@ -1,4 +1,7 @@
 from pandas import DataFrame, Series
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.svm import SVR
 from src.models.base import ModelInterface
 from src.schema import SECONDARY_FEATURES, REQUIRED_FEATURES
 
@@ -25,7 +28,12 @@ class SVRModel(ModelInterface):
         return list(REQUIRED_FEATURES) + list(self.secondary_features)
     
     def train(self, X: DataFrame, y: Series) -> ModelInterface:
-        return super().train(X, y)
+        # Columnas elegidas, guardadas para usar las mismas en predict
+        self.columns_ = self._select_columns()
+        self.pipeline_ = Pipeline([("scaler", StandardScaler()),
+        ("svr",SVR(C=self.C,epsilon=self.epsilon,kernel=self.kernel,gamma=self.gamma,),),])
+        self.pipeline_.fit(X[self.columns_], y)
+        return self
     
     def predict(self, X: DataFrame) -> Series:
         return super().predict(X)
