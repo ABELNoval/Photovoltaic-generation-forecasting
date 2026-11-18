@@ -5,6 +5,8 @@ features and a fixed baseline configuration; hyperparameter tuning is out of
 scope for this phase.
 """
 
+from typing import Literal
+
 import pandas as pd
 from sklearn.neural_network import MLPRegressor
 from sklearn.pipeline import Pipeline
@@ -12,6 +14,8 @@ from sklearn.preprocessing import StandardScaler
 
 from src.models.base import ModelInterface
 from src.schema import REQUIRED_FEATURES
+
+Activation = Literal["identity", "logistic", "tanh", "relu"]
 
 
 class MLPModel(ModelInterface):
@@ -22,12 +26,12 @@ class MLPModel(ModelInterface):
     def __init__(
         self,
         hidden_layer_sizes: tuple[int, ...] = (8,),
-        activation: str = "relu",
+        activation: Activation = "relu",
         max_iter: int = 1000,
         random_state: int = 42,
     ) -> None:
         self.hidden_layer_sizes = hidden_layer_sizes
-        self.activation = activation
+        self.activation: Activation = activation
         self.max_iter = max_iter
         self.random_state = random_state
         self.model_: Pipeline | None = None
