@@ -17,6 +17,7 @@ from src.evaluation.baselines.persistence import (
     RescaledPersistence,
 )
 from src.models.base import ModelInterface
+from src.models.mlp import MLPModel
 
 ModelFactory = Callable[[pd.DataFrame], ModelInterface]
 
@@ -24,4 +25,5 @@ MODEL_FACTORIES: list[ModelFactory] = [
     DayAheadPersistence,
     RescaledPersistence,
     lambda history: LinearRegressionBaseline(),
+    lambda history: MLPModel(),
 ]
