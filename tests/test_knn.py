@@ -52,6 +52,7 @@ def test_knn_scales_with_training_statistics_only():
     model = KNNModel().train(X, y)
     shifted = X + 1000.0  # otros datos no deben cambiar el escalado ya ajustado
     assert model.predict(shifted).notna().all()
+    assert model.mean_ is not None
     np.testing.assert_allclose(model.mean_, X[REQUIRED_FEATURES].mean().to_numpy())
 
 
