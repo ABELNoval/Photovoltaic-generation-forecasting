@@ -8,7 +8,7 @@ from src.schema import SECONDARY_FEATURES, REQUIRED_FEATURES
 class SVRModel(ModelInterface):
     name = "svr"
 
-    def __init__(self,C=1.0,epsilon=0.01,kernel="rbf",gamma=0.01,secondary_features=SECONDARY_FEATURES,random_state=42,):
+    def __init__(self,C=10.0,epsilon=0.01,kernel="rbf",gamma=0.003,secondary_features=(),random_state=42,):
         # Hiperparámetros
         self.C = C
         self.epsilon = epsilon
