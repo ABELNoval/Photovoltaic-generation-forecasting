@@ -19,6 +19,7 @@ from src.evaluation.baselines.persistence import (
 from src.models.base import ModelInterface
 from src.models.knn import KNNModel
 from src.models.mlp import MLPModel
+from src.models.svr_model import SVRModel
 
 ModelFactory = Callable[[pd.DataFrame], ModelInterface]
 
@@ -28,4 +29,5 @@ MODEL_FACTORIES: list[ModelFactory] = [
     lambda history: LinearRegressionBaseline(),
     lambda history: KNNModel(),
     lambda history: MLPModel(),
+    lambda history: SVRModel(),
 ]
