@@ -37,12 +37,14 @@ from src.data.paths import DATA_DIR
 from src.evaluation.metrics import evaluate
 from src.evaluation.periods import select_period
 from src.evaluation.protocol import check_test_period
+from src.evaluation.sky import compare_by_sky
 from src.models.utils import RESULTS_DIR
 from src.schema import DAY_FLAG, TARGET, TIMESTAMP
 
 PREDICTIONS_SUFFIX = "_predictions.csv"
 PREDICTION = "prediction"
 COMPARISON_FILE = "comparison.csv"
+SKY_COMPARISON_FILE = "comparison_by_sky.csv"
 DEFAULT_DATA = DATA_DIR / "sample.csv"
 DEFAULT_TEST = ("2014-05-01", "2014-05-31")
 
@@ -208,15 +210,21 @@ def score_results(
     results_dir: Path = RESULTS_DIR,
     min_coverage: float = MIN_COVERAGE,
     allow_final: bool = False,
-) -> pd.DataFrame:
-    """Compara las predicciones de `results_dir` en el periodo de prueba y guarda la tabla."""
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Compara las predicciones de `results_dir` en el periodo de prueba.
+
+    Devuelve y guarda la tabla general y la tabla por tipo de cielo, ambas
+    sobre las mismas horas comunes.
+    """
     check_test_period(test_period, allow_final)
     predictions = load_predictions(results_dir)
     observed = select_period(df, *test_period)
     hours, coverage = common_hours(predictions, observed, min_coverage)
     table = _table(predictions, observed, hours, coverage)
+    by_sky = compare_by_sky(predictions, observed, hours)
     table.to_csv(Path(results_dir) / COMPARISON_FILE, index=False)
-    return table
+    by_sky.to_csv(Path(results_dir) / SKY_COMPARISON_FILE, index=False)
+    return table, by_sky
 
 
 def add_test_period_arguments(parser: argparse.ArgumentParser) -> None:
@@ -230,9 +238,11 @@ def add_test_period_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--final", action="store_true", help="permite 2017; solo para la evaluación final, una vez")
 
 
-def print_table(table: pd.DataFrame, results_dir: Path) -> None:
+def print_tables(table: pd.DataFrame, by_sky: pd.DataFrame, results_dir: Path) -> None:
     print(table.to_string(index=False, float_format=_four_decimals))
-    print(f"Guardado en {Path(results_dir) / COMPARISON_FILE}")
+    print("\nPor tipo de cielo:")
+    print(by_sky.to_string(index=False, float_format=_four_decimals))
+    print(f"Guardado en {Path(results_dir) / COMPARISON_FILE} y {Path(results_dir) / SKY_COMPARISON_FILE}")
 
 
 def _four_decimals(value: float) -> str:
@@ -243,14 +253,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     add_test_period_arguments(parser)
     args = parser.parse_args()
-    table = score_results(
+    tables = score_results(
         load_dataset(args.data),
         (args.test_start, args.test_end),
         args.results_dir,
         min_coverage=args.min_coverage,
         allow_final=args.final,
     )
-    print_table(table, args.results_dir)
+    print_tables(*tables, args.results_dir)
 
 
 if __name__ == "__main__":

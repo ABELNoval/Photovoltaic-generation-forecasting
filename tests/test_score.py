@@ -4,6 +4,7 @@ import pytest
 
 from src.evaluation.score import (
     COMPARISON_FILE,
+    SKY_COMPARISON_FILE,
     compare,
     load_predictions,
     read_predictions,
@@ -109,18 +110,22 @@ def test_compare_warns_about_hours_missing_from_the_dataset():
         compare({"full": full}, observed)
 
 
-def test_score_results_writes_the_comparison_table(tmp_path):
+def test_score_results_writes_both_tables_on_the_same_hours(tmp_path):
     index = pd.date_range("2014-05-01 01:00", periods=24, freq="h", tz="UTC", name=TIMESTAMP)
     is_day = ((index.hour >= 8) & (index.hour <= 16)).astype(int)
-    df = pd.DataFrame({TARGET: 0.5 * is_day, DAY_FLAG: is_day, CLOUD_TOTAL: 10}, index=index)
+    df = pd.DataFrame(
+        {TARGET: 0.5 * is_day, DAY_FLAG: is_day, CLOUD_TOTAL: np.where(index.hour < 12, 10, 90)}, index=index
+    )
     save_predictions(df[TARGET], "exact", results_dir=tmp_path)
     save_predictions(0.4 * df[DAY_FLAG], "low", results_dir=tmp_path)
 
-    table = score_results(df, ("2014-05-01", "2014-05-01"), tmp_path)
+    table, by_sky = score_results(df, ("2014-05-01", "2014-05-01"), tmp_path)
 
-    assert (tmp_path / COMPARISON_FILE).exists()
+    assert (tmp_path / COMPARISON_FILE).exists() and (tmp_path / SKY_COMPARISON_FILE).exists()
     assert table["model"].tolist() == ["exact", "low"]
     assert table["n_hours"].tolist() == [9, 9]
+    # Las horas de cada tipo de cielo suman las de la tabla general.
+    assert by_sky.groupby("sky_type", observed=True)["n_hours"].first().sum() == 9
 
 
 def test_score_results_refuses_2017_without_final(tmp_path):

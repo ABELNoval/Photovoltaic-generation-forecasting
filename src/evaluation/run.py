@@ -21,7 +21,7 @@ import pandas as pd
 from src.data.dataset import load_dataset
 from src.evaluation.periods import select_period
 from src.evaluation.registry import MODEL_FACTORIES, ModelFactory
-from src.evaluation.score import add_test_period_arguments, print_table, score_results
+from src.evaluation.score import add_test_period_arguments, print_tables, score_results
 from src.models.utils import (
     RESULTS_DIR,
     postprocess_predictions,
@@ -73,11 +73,17 @@ def main() -> None:
     args = parser.parse_args()
 
     df = load_dataset(args.data)
-    test_period = (args.test_start, args.test_end)
-    for path in run_models(df, (args.train_start, args.train_end), test_period, results_dir=args.results_dir):
+    train_period, test_period = (args.train_start, args.train_end), (args.test_start, args.test_end)
+    for path in run_models(df, train_period, test_period, results_dir=args.results_dir):
         print(f"Predicciones: {path}")
-    table = score_results(df, test_period, args.results_dir, min_coverage=args.min_coverage, allow_final=args.final)
-    print_table(table, args.results_dir)
+    tables = score_results(
+        df,
+        test_period,
+        args.results_dir,
+        min_coverage=args.min_coverage,
+        allow_final=args.final,
+    )
+    print_tables(*tables, args.results_dir)
 
 
 if __name__ == "__main__":
