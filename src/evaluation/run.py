@@ -6,6 +6,9 @@ horas del periodo de prueba, ajusta las predicciones igual para todos
 (noche a 0, rango [0, 1]) y las guarda en results/<name>_predictions.csv.
 Al final llama a score.py con el mismo periodo de prueba.
 
+Los periodos se comprueban con protocol.py: se entrena dentro de 2014–2015,
+la prueba es posterior al entrenamiento y 2017 solo entra con --final.
+
 Uso, desde la raíz del repositorio:
 
     python -m src.evaluation.run
@@ -20,6 +23,7 @@ import pandas as pd
 
 from src.data.dataset import load_dataset
 from src.evaluation.periods import select_period
+from src.evaluation.protocol import check_periods
 from src.evaluation.registry import MODEL_FACTORIES, ModelFactory
 from src.evaluation.score import add_test_period_arguments, print_tables, score_results
 from src.models.utils import (
@@ -49,8 +53,10 @@ def run_models(
     test_period: tuple[str, str],
     factories: list[ModelFactory] = MODEL_FACTORIES,
     results_dir: Path = RESULTS_DIR,
+    allow_final: bool = False,
 ) -> list[Path]:
     """Entrena, predice y guarda cada modelo. Devuelve los archivos escritos."""
+    check_periods(train_period, test_period, allow_final)
     train_df = _period(df, *train_period, "entrenamiento")
     test_df = _period(df, *test_period, "prueba")
     X_train, y_train = split_xy(train_df)
@@ -74,7 +80,7 @@ def main() -> None:
 
     df = load_dataset(args.data)
     train_period, test_period = (args.train_start, args.train_end), (args.test_start, args.test_end)
-    for path in run_models(df, train_period, test_period, results_dir=args.results_dir):
+    for path in run_models(df, train_period, test_period, results_dir=args.results_dir, allow_final=args.final):
         print(f"Predicciones: {path}")
     tables = score_results(
         df,
