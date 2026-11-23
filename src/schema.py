@@ -8,11 +8,12 @@ TIMESTAMP = "timestamp_utc"  # final de la hora: la fila de las 12:00 resume 11:
 TARGET = "power_norm"
 DAY_FLAG = "is_day"  # 1 si la hora tiene radiación (GHI > 0) en Open-Meteo
 GHI = "ghi"  # radiación de onda corta; la usa la persistencia reescalada
+CLOUD_TOTAL = "cloud_total"  # nubosidad total en %; define el tipo de cielo
 
 # Obligatorias para todos los modelos.
 CORE_FEATURES = [
     GHI,
-    "cloud_total",
+    CLOUD_TOTAL,
     "cloud_low",
     "cloud_mid",
     "cloud_high",
