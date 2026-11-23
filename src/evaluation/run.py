@@ -76,7 +76,8 @@ def main() -> None:
     test_period = (args.test_start, args.test_end)
     for path in run_models(df, (args.train_start, args.train_end), test_period, results_dir=args.results_dir):
         print(f"Predicciones: {path}")
-    print_table(score_results(df, test_period, args.results_dir), args.results_dir)
+    table = score_results(df, test_period, args.results_dir, min_coverage=args.min_coverage, allow_final=args.final)
+    print_table(table, args.results_dir)
 
 
 if __name__ == "__main__":
