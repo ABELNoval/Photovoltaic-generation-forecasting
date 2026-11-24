@@ -84,6 +84,16 @@ def fetch_weather(latitude: float, longitude: float, start: str = DEFAULT_START,
         parts.append(part)
 
     weather = pd.concat(parts)
+    index = pd.DatetimeIndex(weather.index)
+    duplicate_mask = index.duplicated(keep=False)
+    if duplicate_mask.any():
+        duplicates = index[duplicate_mask].unique()
+        examples = ", ".join(timestamp.isoformat() for timestamp in duplicates[:5])
+        raise ValueError(
+            f"Open-Meteo devolvió {len(duplicates)} timestamps duplicados "
+            f"({examples})"
+        )
+
     weather.index.name = "timestamp_utc"
     # Punto de la rejilla de Open-Meteo que se usó realmente (no el pedido).
     weather.attrs["grid_latitude"] = payload["latitude"]
