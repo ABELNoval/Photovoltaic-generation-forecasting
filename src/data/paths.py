@@ -1,4 +1,4 @@
-"""Rutas de los archivos de datos. `data/` no se sube a git (ver .gitignore)."""
+"""Rutas de datos; solo el dataset ID003 acordado se versiona (ver .gitignore)."""
 
 from pathlib import Path
 

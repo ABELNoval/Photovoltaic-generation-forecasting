@@ -131,9 +131,11 @@ Resumen de las normas de [`docs/planning.md`](docs/planning.md), sección 5:
   parámetros ni para elegir modelos.
 - **Escalas y estadísticos solo con datos de entrenamiento**, nunca con
   validación o prueba.
-- **No se suben datos ni resultados.** `data/` y `results/` están
-  ignorados en git; los archivos que sí deban compartirse se acordarán
-  explícitamente.
+- **No se suben datos ni resultados por defecto.** `data/` y `results/`
+  permanecen ignorados en git, salvo la excepción acordada en el issue #41:
+  `data/processed/dataset_ID003.csv`, el dataset final compartido para los
+  modelos. Los datos brutos y el resto de los archivos generados siguen
+  ignorados; cualquier otra excepción debe acordarse explícitamente.
 - **Los modelos implementan `ModelInterface`** y usan los nombres de
   columnas de `src/schema.py`, sin escribirlos a mano. Ver
   [`src/models/README.md`](src/models/README.md).
