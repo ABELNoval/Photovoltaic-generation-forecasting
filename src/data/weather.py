@@ -4,6 +4,9 @@ Usa el archivo histórico (https://open-meteo.com/en/docs/historical-weather-api
 gratuito, sin clave y en UTC. Las columnas se renombran a las del esquema
 (`src/schema.py`).
 
+El comando también guarda `weather_<nombre>.metadata.json` con las coordenadas
+solicitadas y el punto de rejilla devuelto por la API, sin añadir columnas al CSV.
+
 Convenio de tiempo: cada fila lleva la hora en su **final**. La radiación es
 la media de la hora anterior y la precipitación su suma; el resto de
 variables son el valor instantáneo en esa hora. Coincide con la potencia
@@ -16,6 +19,7 @@ Uso, desde la raíz del repositorio:
 """
 
 import argparse
+import json
 
 import pandas as pd
 import requests
@@ -24,6 +28,7 @@ from src.data.metadata import load_metadata
 from src.data.paths import RAW_DIR
 
 ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
+CELL_SELECTION = "land"
 
 # Variable de Open-Meteo -> columna del esquema.
 VARIABLES = {
@@ -53,6 +58,7 @@ def _fetch_period(latitude: float, longitude: float, start: str, end: str) -> di
         "hourly": ",".join(VARIABLES),
         "timezone": "UTC",
         "wind_speed_unit": "ms",
+        "cell_selection": CELL_SELECTION,
     }
     response = requests.get(ARCHIVE_URL, params=params, timeout=120)
     response.raise_for_status()
@@ -115,11 +121,31 @@ def _cmd(args) -> None:
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     out = RAW_DIR / f"weather_{name}.csv"
     weather.to_csv(out)
+    metadata = {
+        "system_id": args.system_id,
+        "api": ARCHIVE_URL,
+        "period": {"start": args.start, "end": args.end},
+        "cell_selection": CELL_SELECTION,
+        "requested_coordinates": {
+            "latitude": float(latitude),
+            "longitude": float(longitude),
+        },
+        "grid_coordinates": {
+            "latitude": float(weather.attrs["grid_latitude"]),
+            "longitude": float(weather.attrs["grid_longitude"]),
+        },
+    }
+    metadata_out = RAW_DIR / f"weather_{name}.metadata.json"
+    with metadata_out.open("w", encoding="utf-8") as metadata_file:
+        json.dump(metadata, metadata_file, indent=2, sort_keys=True)
+        metadata_file.write("\n")
+
     print(f"Pedido: {latitude:.4f}, {longitude:.4f} | rejilla usada: "
           f"{weather.attrs['grid_latitude']:.4f}, {weather.attrs['grid_longitude']:.4f}")
     print(f"{len(weather)} horas ({weather.index.min()} a {weather.index.max()}), "
           f"{int(weather.isna().sum().sum())} valores sin dato")
     print(f"Guardado en {out}")
+    print(f"Metadatos guardados en {metadata_out}")
 
 
 def main() -> None:
