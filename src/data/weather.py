@@ -83,7 +83,15 @@ def fetch_weather(latitude: float, longitude: float, start: str = DEFAULT_START,
     for year in range(first.year, last.year + 1):
         period_start = max(first, pd.Timestamp(year=year, month=1, day=1))
         period_end = min(last, pd.Timestamp(year=year, month=12, day=31))
-        payload = _fetch_period(latitude, longitude, f"{period_start:%Y-%m-%d}", f"{period_end:%Y-%m-%d}")
+        start_date = f"{period_start:%Y-%m-%d}"
+        end_date = f"{period_end:%Y-%m-%d}"
+        try:
+            payload = _fetch_period(latitude, longitude, start_date, end_date)
+        except requests.RequestException as error:
+            raise RuntimeError(
+                f"No se pudo descargar meteorología para {year} "
+                f"({start_date} a {end_date})"
+            ) from error
         hourly = payload["hourly"]
         part = pd.DataFrame({VARIABLES[name]: hourly[name] for name in VARIABLES})
         part.index = pd.to_datetime(hourly["time"]).tz_localize("UTC")
