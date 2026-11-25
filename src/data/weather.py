@@ -6,6 +6,8 @@ gratuito, sin clave y en UTC. Las columnas se renombran a las del esquema
 
 El comando también guarda `weather_<nombre>.metadata.json` con las coordenadas
 solicitadas y el punto de rejilla devuelto por la API, sin añadir columnas al CSV.
+Incluye la medianoche UTC posterior a la última fecha para etiquetar el final
+de su última hora.
 
 Convenio de tiempo: cada fila lleva la hora en su **final**. La radiación es
 la media de la hora anterior y la precipitación su suma; el resto de
@@ -74,15 +76,17 @@ def fetch_weather(latitude: float, longitude: float, start: str = DEFAULT_START,
 
     Se pide un año por petición: varios años de golpe superan el tiempo
     límite del servidor.
+    La salida incluye la medianoche posterior a `end` como etiqueta final.
 
     Unidades: ghi en W/m², nubosidad y humedad en %, temperatura en °C,
     viento en m/s, presión en hPa y precipitación en mm.
     """
     first, last = pd.Timestamp(start), pd.Timestamp(end)
+    last_timestamp = last.normalize() + pd.Timedelta(days=1)
     parts = []
-    for year in range(first.year, last.year + 1):
+    for year in range(first.year, last_timestamp.year + 1):
         period_start = max(first, pd.Timestamp(year=year, month=1, day=1))
-        period_end = min(last, pd.Timestamp(year=year, month=12, day=31))
+        period_end = min(last_timestamp, pd.Timestamp(year=year, month=12, day=31))
         start_date = f"{period_start:%Y-%m-%d}"
         end_date = f"{period_end:%Y-%m-%d}"
         try:
@@ -98,6 +102,8 @@ def fetch_weather(latitude: float, longitude: float, start: str = DEFAULT_START,
         parts.append(part)
 
     weather = pd.concat(parts)
+    last_timestamp = last_timestamp.tz_localize("UTC")
+    weather = weather.loc[:last_timestamp]
     index = pd.DatetimeIndex(weather.index)
     duplicate_mask = index.duplicated(keep=False)
     if duplicate_mask.any():
@@ -133,6 +139,9 @@ def _cmd(args) -> None:
         "system_id": args.system_id,
         "api": ARCHIVE_URL,
         "period": {"start": args.start, "end": args.end},
+        "end_boundary_timestamp": (
+            pd.Timestamp(args.end).normalize() + pd.Timedelta(days=1)
+        ).tz_localize("UTC").isoformat(),
         "cell_selection": CELL_SELECTION,
         "requested_coordinates": {
             "latitude": float(latitude),
