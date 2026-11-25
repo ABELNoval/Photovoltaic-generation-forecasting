@@ -141,9 +141,9 @@ def _cmd(args) -> None:
         metadata_file.write("\n")
 
     print(f"Pedido: {latitude:.4f}, {longitude:.4f} | rejilla usada: "
-          f"{weather.attrs['grid_latitude']:.4f}, {weather.attrs['grid_longitude']:.4f}")
+        f"{weather.attrs['grid_latitude']:.4f}, {weather.attrs['grid_longitude']:.4f}")
     print(f"{len(weather)} horas ({weather.index.min()} a {weather.index.max()}), "
-          f"{int(weather.isna().sum().sum())} valores sin dato")
+        f"{int(weather.isna().sum().sum())} valores sin dato")
     print(f"Guardado en {out}")
     print(f"Metadatos guardados en {metadata_out}")
 
