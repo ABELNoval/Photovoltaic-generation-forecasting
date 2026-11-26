@@ -79,7 +79,16 @@ def rank_candidates(meta: pd.DataFrame, availability: pd.DataFrame) -> pd.DataFr
 
 def extract_system(system_id: str, path: Path = PV_POWER_CSV) -> pd.Series:
     """Potencia de un sistema a 1 minuto, en W."""
-    return pd.concat(chunk[system_id] for chunk in _read_chunks(path, [system_id]))
+    power = pd.concat(chunk[system_id] for chunk in _read_chunks(path, [system_id]))
+    power = pd.Series(power, name=system_id)
+    power.index = pd.DatetimeIndex(pd.to_datetime(power.index, utc=True))
+    if power.index.has_duplicates:
+        duplicate_count = int(power.index.duplicated(keep=False).sum())
+        raise ValueError(
+            f"{system_id}: se encontraron {duplicate_count} timestamps duplicados "
+            "en las mediciones de potencia"
+        )
+    return power.sort_index()
 
 
 def to_hourly(power: pd.Series, min_minutes: int = MIN_MINUTES_PER_HOUR) -> pd.Series:
@@ -89,9 +98,51 @@ def to_hourly(power: pd.Series, min_minutes: int = MIN_MINUTES_PER_HOUR) -> pd.S
     de Open-Meteo, que es la media de la hora anterior. Las horas con menos
     de `min_minutes` minutos con dato quedan vacías.
     """
+    index = pd.DatetimeIndex(pd.to_datetime(power.index, utc=True))
+    if index.has_duplicates:
+        duplicate_count = int(index.duplicated(keep=False).sum())
+        raise ValueError(f"Se encontraron {duplicate_count} timestamps duplicados")
+
+    power = pd.Series(power.to_numpy(), index=index, name="power_w").sort_index()
     resampler = power.resample("h", label="right", closed="right")
     hourly = resampler.mean()
     return hourly.where(resampler.count() >= min_minutes).rename("power_w")
+
+
+def hourly_coverage(hourly: pd.Series, start: pd.Timestamp = STUDY_START, end: pd.Timestamp = STUDY_END) -> pd.DataFrame:
+    """Resume horas esperadas, observadas y faltantes por año del estudio."""
+    hourly = hourly.copy()
+    hourly.index = pd.DatetimeIndex(pd.to_datetime(hourly.index, utc=True))
+
+    start = pd.Timestamp(start)
+    end = pd.Timestamp(end)
+    start = start.tz_localize("UTC") if start.tz is None else start.tz_convert("UTC")
+    end = end.tz_localize("UTC") if end.tz is None else end.tz_convert("UTC")
+    end_exclusive = end + pd.Timedelta(days=1)
+    hourly = hourly.loc[start:end_exclusive]
+
+    rows = []
+    for year in range(start.year, end.year + 1):
+        year_start = pd.Timestamp(year=year, month=1, day=1, tz="UTC")
+        year_end = year_start + pd.offsets.YearBegin()
+        if year == end.year:
+            year_end = end_exclusive
+        if year == start.year:
+            year_start = start
+        expected_start = year_start + pd.Timedelta(hours=1)
+        expected = pd.date_range(expected_start, year_end, freq="h")
+        observed_count = int(hourly.reindex(expected).notna().sum())
+        missing_count = len(expected) - observed_count
+        rows.append(
+            {
+                "year": year,
+                "hours_expected": len(expected),
+                "hours_with_data": observed_count,
+                "missing_hours": max(missing_count, 0),
+                "coverage_fraction": observed_count / len(expected) if len(expected) else 0.0,
+            }
+        )
+    return pd.DataFrame(rows).set_index("year")
 
 
 def _cmd_availability(args) -> None:
@@ -115,11 +166,17 @@ def _cmd_availability(args) -> None:
 
 def _cmd_extract(args) -> None:
     hourly = to_hourly(extract_system(args.system_id, args.input))
+    hourly = hourly.loc[STUDY_START:STUDY_END + pd.Timedelta(days=1)]
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     out = PROCESSED_DIR / f"power_{args.system_id}_hourly.csv"
     hourly.rename_axis("timestamp_utc").to_csv(out)
+    coverage = hourly_coverage(hourly)
+    coverage_out = PROCESSED_DIR / f"power_{args.system_id}_hourly_coverage.csv"
+    coverage.to_csv(coverage_out)
     print(f"{args.system_id}: {hourly.notna().sum()} horas con dato de {len(hourly)} "
         f"({hourly.index.min()} a {hourly.index.max()})")
+    print("\nCobertura por año:")
+    print(coverage.to_string(float_format=lambda x: f"{x:.3f}"))
     print(f"Guardado en {out}")
 
 
