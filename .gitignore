@@ -223,5 +223,8 @@ __marimo__/
 # results/ y los archivos de datos que el equipo comparte a propósito.
 data/*
 !data/sample.csv
+!data/processed/
+data/processed/*
+!data/processed/dataset_ID003.csv
 results/*
 !results/.gitkeep

@@ -17,9 +17,17 @@ Fase 1: investigación y estado del arte.
 
 ## Estructura
 - `docs/`: estado del arte e informes
-- `data/`: datasets (no se suben archivos pesados)
+- `data/`: datos brutos y procesados; solo se versiona el dataset compartido
+  `data/processed/dataset_ID003.csv` como excepción acordada en el issue #41.
 - `notebooks/`: experimentos
 - `src/`: código fuente
+
+El dataset ID003 se regenera desde la raíz con `python -m src.data.build_dataset ID003`
+cuando están disponibles los archivos de entrada. Combina y procesa las mediciones de
+potencia de Utrecht (Visser et al., 2022, [Zenodo](https://doi.org/10.5281/zenodo.6906504))
+y el histórico de [Open-Meteo](https://open-meteo.com/en/licence). Ambas fuentes se
+distribuyen bajo CC BY 4.0. Los archivos de entrada y los demás datos generados no se
+versionan.
 
 ## Entorno de trabajo
 Requiere Python 3.11 o superior. Desde la raíz del repositorio:

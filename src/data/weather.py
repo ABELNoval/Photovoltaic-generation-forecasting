@@ -4,6 +4,11 @@ Usa el archivo histórico (https://open-meteo.com/en/docs/historical-weather-api
 gratuito, sin clave y en UTC. Las columnas se renombran a las del esquema
 (`src/schema.py`).
 
+El comando también guarda `weather_<nombre>.metadata.json` con las coordenadas
+solicitadas y el punto de rejilla devuelto por la API, sin añadir columnas al CSV.
+Incluye la medianoche UTC posterior a la última fecha para etiquetar el final
+de su última hora.
+
 Convenio de tiempo: cada fila lleva la hora en su **final**. La radiación es
 la media de la hora anterior y la precipitación su suma; el resto de
 variables son el valor instantáneo en esa hora. Coincide con la potencia
@@ -16,6 +21,7 @@ Uso, desde la raíz del repositorio:
 """
 
 import argparse
+import json
 
 import pandas as pd
 import requests
@@ -24,6 +30,7 @@ from src.data.metadata import load_metadata
 from src.data.paths import RAW_DIR
 
 ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
+CELL_SELECTION = "land"
 
 # Variable de Open-Meteo -> columna del esquema.
 VARIABLES = {
@@ -53,6 +60,7 @@ def _fetch_period(latitude: float, longitude: float, start: str, end: str) -> di
         "hourly": ",".join(VARIABLES),
         "timezone": "UTC",
         "wind_speed_unit": "ms",
+        "cell_selection": CELL_SELECTION,
     }
     response = requests.get(ARCHIVE_URL, params=params, timeout=120)
     response.raise_for_status()
@@ -68,22 +76,44 @@ def fetch_weather(latitude: float, longitude: float, start: str = DEFAULT_START,
 
     Se pide un año por petición: varios años de golpe superan el tiempo
     límite del servidor.
+    La salida incluye la medianoche posterior a `end` como etiqueta final.
 
     Unidades: ghi en W/m², nubosidad y humedad en %, temperatura en °C,
     viento en m/s, presión en hPa y precipitación en mm.
     """
     first, last = pd.Timestamp(start), pd.Timestamp(end)
+    last_timestamp = last.normalize() + pd.Timedelta(days=1)
     parts = []
-    for year in range(first.year, last.year + 1):
+    for year in range(first.year, last_timestamp.year + 1):
         period_start = max(first, pd.Timestamp(year=year, month=1, day=1))
-        period_end = min(last, pd.Timestamp(year=year, month=12, day=31))
-        payload = _fetch_period(latitude, longitude, f"{period_start:%Y-%m-%d}", f"{period_end:%Y-%m-%d}")
+        period_end = min(last_timestamp, pd.Timestamp(year=year, month=12, day=31))
+        start_date = f"{period_start:%Y-%m-%d}"
+        end_date = f"{period_end:%Y-%m-%d}"
+        try:
+            payload = _fetch_period(latitude, longitude, start_date, end_date)
+        except requests.RequestException as error:
+            raise RuntimeError(
+                f"No se pudo descargar meteorología para {year} "
+                f"({start_date} a {end_date})"
+            ) from error
         hourly = payload["hourly"]
         part = pd.DataFrame({VARIABLES[name]: hourly[name] for name in VARIABLES})
         part.index = pd.to_datetime(hourly["time"]).tz_localize("UTC")
         parts.append(part)
 
     weather = pd.concat(parts)
+    last_timestamp = last_timestamp.tz_localize("UTC")
+    weather = weather.loc[:last_timestamp]
+    index = pd.DatetimeIndex(weather.index)
+    duplicate_mask = index.duplicated(keep=False)
+    if duplicate_mask.any():
+        duplicates = index[duplicate_mask].unique()
+        examples = ", ".join(timestamp.isoformat() for timestamp in duplicates[:5])
+        raise ValueError(
+            f"Open-Meteo devolvió {len(duplicates)} timestamps duplicados "
+            f"({examples})"
+        )
+
     weather.index.name = "timestamp_utc"
     # Punto de la rejilla de Open-Meteo que se usó realmente (no el pedido).
     weather.attrs["grid_latitude"] = payload["latitude"]
@@ -105,11 +135,34 @@ def _cmd(args) -> None:
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     out = RAW_DIR / f"weather_{name}.csv"
     weather.to_csv(out)
+    metadata = {
+        "system_id": args.system_id,
+        "api": ARCHIVE_URL,
+        "period": {"start": args.start, "end": args.end},
+        "end_boundary_timestamp": (
+            pd.Timestamp(args.end).normalize() + pd.Timedelta(days=1)
+        ).tz_localize("UTC").isoformat(),
+        "cell_selection": CELL_SELECTION,
+        "requested_coordinates": {
+            "latitude": float(latitude),
+            "longitude": float(longitude),
+        },
+        "grid_coordinates": {
+            "latitude": float(weather.attrs["grid_latitude"]),
+            "longitude": float(weather.attrs["grid_longitude"]),
+        },
+    }
+    metadata_out = RAW_DIR / f"weather_{name}.metadata.json"
+    with metadata_out.open("w", encoding="utf-8") as metadata_file:
+        json.dump(metadata, metadata_file, indent=2, sort_keys=True)
+        metadata_file.write("\n")
+
     print(f"Pedido: {latitude:.4f}, {longitude:.4f} | rejilla usada: "
-          f"{weather.attrs['grid_latitude']:.4f}, {weather.attrs['grid_longitude']:.4f}")
+        f"{weather.attrs['grid_latitude']:.4f}, {weather.attrs['grid_longitude']:.4f}")
     print(f"{len(weather)} horas ({weather.index.min()} a {weather.index.max()}), "
-          f"{int(weather.isna().sum().sum())} valores sin dato")
+        f"{int(weather.isna().sum().sum())} valores sin dato")
     print(f"Guardado en {out}")
+    print(f"Metadatos guardados en {metadata_out}")
 
 
 def main() -> None:

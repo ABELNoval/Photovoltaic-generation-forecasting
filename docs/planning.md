@@ -260,7 +260,7 @@ photovoltaic-generation-forecasting/
 │   ├── state_of_the_art.md
 │   ├── proposal.md
 │   └── planning.md
-├── data/                  # datos descargados (no se suben archivos pesados)
+├── data/                  # datos; solo el dataset ID003 acordado se sube a git
 ├── notebooks/             # exploración y análisis
 ├── src/
 │   ├── data/              # descarga y limpieza (Miembro 1)
