@@ -80,7 +80,7 @@ def test_fill_short_gaps_respects_maximum_gap(gap_length, should_interpolate):
 
 
 def test_build_dataset_discards_day_with_unfilled_daytime_gap(monkeypatch):
-    index = pd.date_range("2014-01-01 01:00", periods=48, freq="h", tz="UTC")
+    index = pd.date_range("2014-12-31 01:00", periods=48, freq="h", tz="UTC")
     source = pd.DataFrame(
         {
             **{feature: 0.0 for feature in CORE_FEATURES + SECONDARY_FEATURES},
@@ -90,6 +90,8 @@ def test_build_dataset_discards_day_with_unfilled_daytime_gap(monkeypatch):
     )
     source["ghi"] = 100.0
     source.loc[index[9:13], "power_w"] = np.nan
+    source.loc[index[14:17], "power_w"] = np.nan
+    source.loc[index[30:32], "power_w"] = np.nan
     metadata = pd.DataFrame(
         {"estimated_ac_capacity": [1000.0]},
         index=["ID003"],
@@ -99,15 +101,39 @@ def test_build_dataset_discards_day_with_unfilled_daytime_gap(monkeypatch):
 
     dataset, stats = dataset_builder.build_dataset(
         "ID003",
-        start="2014-01-01",
-        end="2014-01-02",
+        start="2014-12-31",
+        end="2015-01-01",
     )
 
     assert stats["days_dropped"] == 1
     assert stats["days"] == 1
     assert stats["rows"] == 24
-    assert dataset[TIMESTAMP].iloc[0] == pd.Timestamp("2014-01-02 01:00", tz="UTC")
-    assert dataset[TIMESTAMP].iloc[-1] == pd.Timestamp("2014-01-03 00:00", tz="UTC")
+    assert stats["hours_expected"] == 48
+    assert stats["power_hours_with_data"] == 39
+    assert stats["power_missing_hours"] == 9
+    assert stats["hours_interpolated_before_day_discard"] == 5
+    assert stats["hours_interpolated"] == 2
+    assert stats["hours_interpolated_on_discarded_days"] == 3
+    assert stats["unresolved_power_hours"] == 4
+    assert stats["missing_values"] == 0
+    annual_2014, annual_2015 = stats["annual"]
+    assert annual_2014["year"] == 2014
+    assert annual_2014["hours_expected"] == 24
+    assert annual_2014["power_hours_with_data"] == 17
+    assert annual_2014["days_dropped"] == 1
+    assert annual_2014["days_kept"] == 0
+    assert annual_2014["hours_interpolated_on_discarded_days"] == 3
+    assert annual_2014["rows"] == 0
+    assert annual_2015["year"] == 2015
+    assert annual_2015["hours_expected"] == 24
+    assert annual_2015["power_hours_with_data"] == 22
+    assert annual_2015["days_dropped"] == 0
+    assert annual_2015["days_kept"] == 1
+    assert annual_2015["hours_interpolated"] == 2
+    assert annual_2015["rows"] == 24
+    assert annual_2015["daytime_rows"] == 24
+    assert dataset[TIMESTAMP].iloc[0] == pd.Timestamp("2015-01-01 01:00", tz="UTC")
+    assert dataset[TIMESTAMP].iloc[-1] == pd.Timestamp("2015-01-02 00:00", tz="UTC")
 
 
 def test_load_dataset_returns_sorted_utc_index(tmp_path):
