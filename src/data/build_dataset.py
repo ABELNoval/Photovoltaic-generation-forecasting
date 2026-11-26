@@ -106,27 +106,123 @@ def build_dataset(system_id: str, start: str | None = None, end: str | None = No
     """
     capacities = load_metadata()["estimated_ac_capacity"].to_dict()
     ac_capacity = float(capacities[system_id])
-    df = add_calendar(clean(load_sources(system_id), ac_capacity))
+    sources = load_sources(system_id)
+    df = add_calendar(clean(sources, ac_capacity))
 
     # Cada fila se etiqueta con el final de su hora: el día D va de D 01:00 a D+1 00:00.
     first = (pd.Timestamp(start, tz="UTC") if start else STUDY_START) + pd.Timedelta(hours=1)
     last = (pd.Timestamp(end, tz="UTC") if end else STUDY_END) + pd.Timedelta(days=1)
     df = df.loc[first:last]
+    sources = sources.loc[first:last]
 
     days = (pd.DatetimeIndex(df.index) - pd.Timedelta(hours=1)).normalize()
     bad_days = df[TARGET].isna().groupby(days).any()
-    kept = df[~days.isin(bad_days[bad_days].index)]
+    bad_day_index = pd.DatetimeIndex(bad_days.index)
+    bad_day_dates = bad_day_index[bad_days.to_numpy()]
+    discarded_day_rows = days.isin(bad_day_dates)
+    kept = df[~discarded_day_rows]
+    result = kept.reset_index(names=TIMESTAMP)[COLUMNS]
+
+    interval_years = (pd.DatetimeIndex(df.index) - pd.Timedelta(hours=1)).year
+    kept_years = (pd.DatetimeIndex(kept.index) - pd.Timedelta(hours=1)).year
+    result_years = (
+        pd.DatetimeIndex(pd.to_datetime(result[TIMESTAMP], utc=True))
+        - pd.Timedelta(hours=1)
+    ).year
+    weather_columns = [column for column in sources.columns if column != "power_w"]
+    period_start = first - pd.Timedelta(hours=1)
+    years = range(period_start.year, (last - pd.Timedelta(hours=1)).year + 1)
+    annual = []
+    for year in years:
+        calendar_start = pd.Timestamp(year=year, month=1, day=1, tz="UTC")
+        calendar_end = pd.Timestamp(year=year + 1, month=1, day=1, tz="UTC")
+        interval_start = max(period_start, calendar_start)
+        interval_end = min(last, calendar_end)
+        expected = pd.date_range(
+            interval_start + pd.Timedelta(hours=1),
+            interval_end,
+            freq="h",
+        )
+        raw = sources.reindex(expected)
+        row_mask = interval_years == year
+        kept_mask = kept_years == year
+        discarded_mask = row_mask & discarded_day_rows
+        day_mask = bad_day_index.year == year
+        annual.append(
+            {
+                "year": year,
+                "hours_expected": len(expected),
+                "power_hours_with_data": int(raw["power_w"].notna().sum()),
+                "power_missing_hours": int(raw["power_w"].isna().sum()),
+                "power_coverage_fraction": (
+                    float(raw["power_w"].notna().sum() / len(expected))
+                    if len(expected)
+                    else 0.0
+                ),
+                "weather_missing_values": int(
+                    raw[weather_columns].isna().sum().sum()
+                ),
+                "negative_values": int(df.loc[row_mask, "_negative"].sum()),
+                "night_hours_set_to_zero": int(
+                    df.loc[row_mask, "_night_zero"].sum()
+                ),
+                "hours_interpolated": int(
+                    kept.loc[kept_mask, "_interpolated"].sum()
+                ),
+                "hours_interpolated_on_discarded_days": int(
+                    df.loc[discarded_mask, "_interpolated"].sum()
+                ),
+                "unresolved_power_hours": int(
+                    df.loc[row_mask, TARGET].isna().sum()
+                ),
+                "days_kept": int((~bad_days.loc[day_mask]).sum()),
+                "days_dropped": int(bad_days.loc[day_mask].sum()),
+                "rows": int((result_years == year).sum()),
+                "daytime_rows": int(
+                    result.loc[result_years == year, DAY_FLAG].sum()
+                ),
+                "missing_values": int(
+                    result.loc[result_years == year].isna().sum().sum()
+                ),
+            }
+        )
+
+    hours_expected = sum(row["hours_expected"] for row in annual)
+    power_hours_with_data = sum(row["power_hours_with_data"] for row in annual)
+    interpolated_on_discarded_days = sum(
+        row["hours_interpolated_on_discarded_days"] for row in annual
+    )
 
     stats = {
         "negative_values": int(df["_negative"].sum()),
         "night_hours_set_to_zero": int(df["_night_zero"].sum()),
         "hours_interpolated": int(kept["_interpolated"].sum()),
+        "hours_interpolated_before_day_discard": int(df["_interpolated"].sum()),
+        "hours_interpolated_on_discarded_days": interpolated_on_discarded_days,
+        "unresolved_power_hours": int(df[TARGET].isna().sum()),
         "days_dropped": int(bad_days.sum()),
         "rows": len(kept),
         "daytime_rows": int(kept[DAY_FLAG].sum()),
         "days": len(bad_days) - int(bad_days.sum()),
+        "hours_expected": hours_expected,
+        "power_hours_with_data": power_hours_with_data,
+        "power_missing_hours": hours_expected - power_hours_with_data,
+        "power_coverage_fraction": (
+            power_hours_with_data / hours_expected if hours_expected else 0.0
+        ),
+        "weather_missing_values": int(
+            sources[weather_columns].reindex(
+                pd.date_range(
+                    period_start + pd.Timedelta(hours=1),
+                    last,
+                    freq="h",
+                )
+            ).isna().sum().sum()
+        ),
+        "missing_values": int(result.isna().sum().sum()),
+        "annual": annual,
     }
-    return kept.reset_index(names=TIMESTAMP)[COLUMNS], stats
+    return result, stats
 
 
 def main() -> None:
@@ -146,8 +242,81 @@ def main() -> None:
     print(f"  filas: {stats['rows']} ({stats['days']} días), de día: {stats['daytime_rows']}")
     print(f"  valores negativos puestos a 0: {stats['negative_values']}")
     print(f"  horas de noche sin dato puestas a 0: {stats['night_hours_set_to_zero']}")
-    print(f"  horas interpoladas (huecos de hasta {MAX_GAP_HOURS} h): {stats['hours_interpolated']}")
-    print(f"  días descartados por huecos largos: {stats['days_dropped']}")
+    print(
+        f"  horas interpoladas (huecos de hasta {MAX_GAP_HOURS} h): "
+        f"{stats['hours_interpolated']} conservadas de "
+        f"{stats['hours_interpolated_before_day_discard']} estimadas"
+    )
+    print(
+        "  potencia faltante después de limpiar: "
+        f"{stats['unresolved_power_hours']} horas; "
+        f"{stats['days_dropped']} días descartados"
+    )
+    print(
+        f"  cobertura de potencia: {stats['power_hours_with_data']} de "
+        f"{stats['hours_expected']} horas ({stats['power_coverage_fraction']:.3%}); "
+        f"faltantes: {stats['power_missing_hours']}"
+    )
+    print(
+        "  valores meteorológicos faltantes en horas esperadas: "
+        f"{stats['weather_missing_values']}"
+    )
+    print(f"  valores faltantes en el dataset final: {stats['missing_values']}")
+    print("\nCobertura de potencia por año:")
+    coverage = pd.DataFrame(stats["annual"]).set_index("year")
+    print(
+        coverage[
+            [
+                "hours_expected",
+                "power_hours_with_data",
+                "power_missing_hours",
+                "power_coverage_fraction",
+                "weather_missing_values",
+            ]
+        ]
+        .rename(
+            columns={
+                "hours_expected": "horas_esperadas",
+                "power_hours_with_data": "potencia_con_dato",
+                "power_missing_hours": "potencia_faltante",
+                "power_coverage_fraction": "cobertura_potencia",
+                "weather_missing_values": "faltantes_meteorologia",
+            }
+        )
+        .to_string(float_format=lambda value: f"{value:.3f}")
+    )
+    print("\nLimpieza y dataset final por año:")
+    print(
+        coverage[
+            [
+                "negative_values",
+                "night_hours_set_to_zero",
+                "hours_interpolated",
+                "hours_interpolated_on_discarded_days",
+                "unresolved_power_hours",
+                "days_kept",
+                "days_dropped",
+                "rows",
+                "daytime_rows",
+                "missing_values",
+            ]
+        ]
+        .rename(
+            columns={
+                "negative_values": "negativos_corregidos",
+                "night_hours_set_to_zero": "noches_a_cero",
+                "hours_interpolated": "interpoladas_conservadas",
+                "hours_interpolated_on_discarded_days": "interpoladas_dias_descartados",
+                "unresolved_power_hours": "potencia_aun_faltante",
+                "days_kept": "dias_conservados",
+                "days_dropped": "dias_descartados",
+                "rows": "filas_finales",
+                "daytime_rows": "filas_diurnas",
+                "missing_values": "celdas_faltantes",
+            }
+        )
+        .to_string()
+    )
     print(f"Guardado en {out.relative_to(DATA_DIR.parent) if out.is_absolute() else out}")
 
 
