@@ -129,9 +129,9 @@ def hourly_coverage(hourly: pd.Series, start: pd.Timestamp = STUDY_START, end: p
             year_end = end_exclusive
         if year == start.year:
             year_start = start
-        expected = pd.date_range(year_start, year_end, freq="h", inclusive="left")
-        observed = hourly.loc[year_start:year_end - pd.Timedelta(microseconds=1)].notna()
-        observed_count = int(observed.sum())
+        expected_start = year_start + pd.Timedelta(hours=1)
+        expected = pd.date_range(expected_start, year_end, freq="h")
+        observed_count = int(hourly.reindex(expected).notna().sum())
         missing_count = len(expected) - observed_count
         rows.append(
             {

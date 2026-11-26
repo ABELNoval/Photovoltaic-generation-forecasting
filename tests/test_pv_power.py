@@ -64,8 +64,8 @@ def test_to_hourly_rejects_duplicate_timestamps():
 def test_hourly_coverage_is_reported_by_year():
     index = pd.DatetimeIndex(
         [
-            "2014-01-01 00:00:00+00:00",
             "2014-01-01 01:00:00+00:00",
+            "2014-12-31 23:00:00+00:00",
             "2015-01-01 00:00:00+00:00",
         ]
     )
@@ -74,9 +74,9 @@ def test_hourly_coverage_is_reported_by_year():
     coverage = hourly_coverage(
         hourly,
         start=pd.Timestamp("2014-01-01", tz="UTC"),
-        end=pd.Timestamp("2015-01-01", tz="UTC"),
+        end=pd.Timestamp("2014-12-31", tz="UTC"),
     )
 
     assert coverage.loc[2014, "hours_expected"] == 8760
-    assert coverage.loc[2014, "hours_with_data"] == 1
-    assert coverage.loc[2014, "missing_hours"] == 8759
+    assert coverage.loc[2014, "hours_with_data"] == 2
+    assert coverage.loc[2014, "missing_hours"] == 8758
